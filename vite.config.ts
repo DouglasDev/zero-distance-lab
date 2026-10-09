@@ -4,8 +4,5 @@ import wyw from '@wyw-in-js/vite';
 
 export default defineConfig({
   cacheDir: '.vite-cache',
-  plugins: [
-    { ...wyw({ include: ['src/**/*.tsx'] }), enforce: 'pre' },
-    react()
-  ]
+  plugins: [{ ...wyw({ include: ['src/**/*.tsx'] }), enforce: 'pre' }, react()],
 });

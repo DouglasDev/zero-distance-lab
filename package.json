@@ -3,13 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@10.12.4",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "typecheck": "tsc --noEmit",
     "build": "pnpm run typecheck && vite build",
     "preview": "vite preview --host 127.0.0.1",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "prepare": "husky"
   },
   "dependencies": {
     "@linaria/react": "7.0.1",
@@ -26,7 +28,10 @@
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.0.1",
     "@wyw-in-js/vite": "1.1.0",
+    "husky": "9.1.7",
+    "oxfmt": "0.72.0",
     "typescript": "6.0.3",
     "vite": "8.3.1"
-  }
+  },
+  "packageManager": "pnpm@10.12.4"
 }
