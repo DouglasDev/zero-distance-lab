@@ -11,6 +11,9 @@ importers:
       '@linaria/react':
         specifier: 7.0.1
         version: 7.0.1(react@19.2.5)
+      '@mediapipe/tasks-vision':
+        specifier: 1.1.0
+        version: 1.1.0
       phaser:
         specifier: 4.0.0
         version: 4.0.0
@@ -250,6 +253,9 @@ packages:
     engines: {node: '>=20.0.0'}
     peerDependencies:
       react: '>=16'
+
+  '@mediapipe/tasks-vision@1.1.0':
+    resolution: {integrity: sha512-ZJqh0wMKOINorfSffvDAxzyO1//c+FiG3IkzOdNDnLqvBB3DbMfj0bB/tys2SNf9S914sgoIbIpF4HTOi336cg==}
 
   '@napi-rs/canvas-android-arm64@1.0.10':
     resolution: {integrity: sha512-0sDMvme+7fj6bHERUaBs5SvEyWaORc91VUkaB4RrtG7p6dBrBNGy1of8cyEKDxygd1FlHtW+Thunj8lSixzY7A==}
@@ -1299,6 +1305,8 @@ snapshots:
       ts-invariant: 0.10.3
     transitivePeerDependencies:
       - supports-color
+
+  '@mediapipe/tasks-vision@1.1.0': {}
 
   '@napi-rs/canvas-android-arm64@1.0.10':
     optional: true

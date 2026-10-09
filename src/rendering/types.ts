@@ -2,8 +2,8 @@ export type Mode = 'headless' | 'sphere' | 'still';
 export interface Settings {
   mode: Mode;
   radius: number;
-  x: number;
-  y: number;
+  faceCoverage: number;
+  faceFeather: number;
   motion: boolean;
   amount: number;
   demo: boolean;
@@ -28,6 +28,4 @@ export interface Effect {
     settings: Settings,
     time: number,
   ): void;
-  containsPoint?(settings: Settings, point: Position): boolean;
-  positionAtPoint?(point: Position): Position;
 }

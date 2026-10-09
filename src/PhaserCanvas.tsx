@@ -2,6 +2,7 @@ import * as Phaser from 'phaser';
 import { forwardRef, useEffect, useImperativeHandle, useRef, type RefObject } from 'react';
 import { styled } from '@linaria/react';
 import { ExperimentScene } from './rendering/ExperimentScene';
+import type { TrackingStatus } from './modes/headless/trackingMessages';
 import { HEIGHT, WIDTH, type Settings } from './rendering/types';
 
 const Host = styled.div`
@@ -15,21 +16,22 @@ const Host = styled.div`
 export interface CanvasHandle {
   capture: () => boolean;
   clear: () => void;
+  retryTracking: () => void;
 }
 interface Props {
   settings: Settings;
   video: RefObject<HTMLVideoElement | null>;
-  onPosition: (x: number, y: number) => void;
+  onTracking: (status: TrackingStatus) => void;
 }
 
 /** Bridge React and Phaser; the scene owns scheduling, input, and rendering. */
 export const PhaserCanvas = forwardRef<CanvasHandle, Props>(function PhaserCanvas(
-  { settings, video, onPosition },
+  { settings, video, onTracking },
   ref,
 ) {
   const host = useRef<HTMLDivElement>(null);
-  const live = useRef({ settings, onPosition });
-  live.current = { settings, onPosition };
+  const live = useRef({ settings, onTracking });
+  live.current = { settings, onTracking };
   const scene = useRef<ExperimentScene | null>(null);
 
   useImperativeHandle(
@@ -37,6 +39,7 @@ export const PhaserCanvas = forwardRef<CanvasHandle, Props>(function PhaserCanva
     () => ({
       capture: () => scene.current?.capture() ?? false,
       clear: () => scene.current?.effectRenderer.clear(),
+      retryTracking: () => scene.current?.retryTracking(),
     }),
     [],
   );
@@ -58,6 +61,7 @@ export const PhaserCanvas = forwardRef<CanvasHandle, Props>(function PhaserCanva
       scene: experiment,
     });
     return () => {
+      experiment.dispose();
       scene.current = null;
       game.destroy(true);
     };
@@ -66,7 +70,7 @@ export const PhaserCanvas = forwardRef<CanvasHandle, Props>(function PhaserCanva
   return (
     <Host
       ref={host}
-      aria-label="Live visual experiment. In headless mode, drag the circular opening or use the position sliders."
+      aria-label="Live visual experiment. In headless mode, the opening follows your face automatically."
     />
   );
 });

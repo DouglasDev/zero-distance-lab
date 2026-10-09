@@ -1,5 +1,7 @@
-import { createSurface, withCircleClip, strokeCircle } from '../../rendering/canvas.ts';
+import { createSurface } from '../../rendering/canvas.ts';
 import { drawDemoRoom } from '../../rendering/demo.ts';
+import { demoFaceOutline } from './faceOutline.ts';
+import { fillFaceMask } from './faceMask.ts';
 import {
   WIDTH,
   HEIGHT,
@@ -11,9 +13,26 @@ import {
   type Position,
 } from '../../rendering/types.ts';
 
+// A half-resolution alpha mask keeps close-up faces inexpensive; display interpolation smooths it.
+const MASK_SCALE = 2;
+
 export class HeadlessEffect implements Effect {
   private background = createSurface(SOURCE_WIDTH, SOURCE_HEIGHT);
+  private mask = createSurface(SOURCE_WIDTH / MASK_SCALE, SOURCE_HEIGHT / MASK_SCALE);
+  private overlay = createSurface(SOURCE_WIDTH, SOURCE_HEIGHT);
+  private maskPixels = this.mask.context.createImageData(
+    SOURCE_WIDTH / MASK_SCALE,
+    SOURCE_HEIGHT / MASK_SCALE,
+  );
+  private contour: Position[] | null = null;
+  private lastFace: Position[] | null = null;
+  private lastCoverage = -1;
+  private lastFeather = -1;
   hasBackground = false;
+
+  setFace(contour: Position[] | null) {
+    this.contour = contour;
+  }
 
   capture(source: SourceFrame, demo: boolean) {
     if (demo) drawDemoRoom(this.background.context);
@@ -26,32 +45,37 @@ export class HeadlessEffect implements Effect {
     this.background.context.clearRect(0, 0, SOURCE_WIDTH, SOURCE_HEIGHT);
   }
 
-  containsPoint(settings: Settings, point: Position) {
-    return (
-      Math.hypot(point.x - settings.x * WIDTH, point.y - settings.y * HEIGHT) <
-      settings.radius * HEIGHT
-    );
-  }
-
-  positionAtPoint(point: Position): Position {
-    return {
-      x: Math.max(0.05, Math.min(0.95, point.x / WIDTH)),
-      y: Math.max(0.05, Math.min(0.95, point.y / HEIGHT)),
-    };
-  }
-
-  render(ctx: CanvasRenderingContext2D, source: SourceFrame, settings: Settings) {
+  render(ctx: CanvasRenderingContext2D, source: SourceFrame, settings: Settings, time: number) {
     ctx.drawImage(source.canvas, 0, 0, WIDTH, HEIGHT);
-    const cx = settings.x * WIDTH,
-      cy = settings.y * HEIGHT,
-      r = settings.radius * HEIGHT;
-    withCircleClip(ctx, cx, cy, r, () => {
-      if (this.hasBackground) ctx.drawImage(this.background.canvas, 0, 0, WIDTH, HEIGHT);
-      else {
-        ctx.fillStyle = '#142d27';
-        ctx.fillRect(0, 0, WIDTH, HEIGHT);
-      }
-    });
-    strokeCircle(ctx, cx, cy, r, '#dddbc0', 3);
+    const face = settings.demo ? demoFaceOutline(time) : this.contour;
+    if (!face) return;
+    if (
+      face !== this.lastFace ||
+      settings.faceCoverage !== this.lastCoverage ||
+      settings.faceFeather !== this.lastFeather
+    ) {
+      fillFaceMask(
+        this.maskPixels,
+        face.map((point) => ({ x: point.x / MASK_SCALE, y: point.y / MASK_SCALE })),
+        settings.faceCoverage,
+        settings.faceFeather,
+      );
+      this.mask.context.putImageData(this.maskPixels, 0, 0);
+      this.lastFace = face;
+      this.lastCoverage = settings.faceCoverage;
+      this.lastFeather = settings.faceFeather;
+    }
+    const overlay = this.overlay.context;
+    overlay.clearRect(0, 0, SOURCE_WIDTH, SOURCE_HEIGHT);
+    if (this.hasBackground) overlay.drawImage(this.background.canvas, 0, 0);
+    else {
+      overlay.fillStyle = '#142d27';
+      overlay.fillRect(0, 0, SOURCE_WIDTH, SOURCE_HEIGHT);
+    }
+    overlay.save();
+    overlay.globalCompositeOperation = 'destination-in';
+    overlay.drawImage(this.mask.canvas, 0, 0, SOURCE_WIDTH, SOURCE_HEIGHT);
+    overlay.restore();
+    ctx.drawImage(this.overlay.canvas, 0, 0, WIDTH, HEIGHT);
   }
 }

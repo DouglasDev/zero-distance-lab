@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createCanvas } from '@napi-rs/canvas';
 import { EffectRenderer } from '../src/rendering/EffectRenderer.ts';
+import { demoFaceOutline } from '../src/modes/headless/faceOutline.ts';
 import { WIDTH, HEIGHT } from '../src/rendering/types.ts';
 
 globalThis.document = {
@@ -13,6 +14,8 @@ globalThis.document = {
 const defaults = {
   mode: 'headless',
   radius: 0.19,
+  faceCoverage: 0.8,
+  faceFeather: 0.12,
   x: 0.5,
   y: 0.39,
   motion: true,
@@ -40,12 +43,13 @@ function video() {
   return canvas;
 }
 
-test('live capture is mirrored, and the fixed opening restores its saved background', () => {
+test('live capture is mirrored, and a tracked face opening restores its saved background', () => {
   const fx = new EffectRenderer(),
     { ctx } = output(),
     feed = video();
   fx.updateSource(feed, false, 0);
   fx.capture(false);
+  fx.headless.setFace(demoFaceOutline(0));
   feed.getContext('2d').fillStyle = '#aa00aa';
   feed.getContext('2d').fillRect(0, 0, 640, 360);
   fx.updateSource(feed, false, 0);
@@ -117,20 +121,66 @@ test('switching effects preserves captured background until explicitly cleared',
   renderer.capture(true);
   renderer.render(ctx, { ...defaults, mode: 'sphere' }, 1000);
   renderer.render(ctx, { ...defaults, mode: 'still' }, 2500);
+  renderer.updateSource(null, true, 2500);
   renderer.render(ctx, { ...defaults, demo: true }, 2500);
   assert.equal(renderer.hasBackground, true);
-  assert.deepEqual(pixel(ctx, 480, 210), [113, 144, 133, 255]);
+  assert.deepEqual(pixel(ctx, 525, 213), [113, 144, 133, 255]);
   renderer.clear();
+  renderer.updateSource(null, true, 2500);
   renderer.render(ctx, { ...defaults, demo: true }, 2500);
-  assert.deepEqual(pixel(ctx, 480, 210), [20, 45, 39, 255]);
+  assert.deepEqual(pixel(ctx, 525, 213), [20, 45, 39, 255]);
 });
 
-test('only the headless effect exposes dragging, with positions kept in slider bounds', () => {
+test('live view is preserved when tracking has no face, including after losing a face', () => {
   const renderer = new EffectRenderer();
-  const effect = renderer.activeEffect('headless');
-  assert.equal(effect.containsPoint(defaults, { x: 480, y: 210 }), true);
-  assert.equal(effect.containsPoint(defaults, { x: 0, y: 0 }), false);
-  assert.deepEqual(effect.positionAtPoint({ x: -100, y: 1000 }), { x: 0.05, y: 0.95 });
-  assert.equal(renderer.activeEffect('sphere').positionAtPoint, undefined);
-  assert.equal(renderer.activeEffect('still').positionAtPoint, undefined);
+  const { ctx } = output();
+  renderer.updateSource(video(), false, 0);
+  renderer.render(ctx, defaults, 0);
+  const live = pixel(ctx, 500, 210);
+  renderer.headless.setFace(demoFaceOutline(0));
+  renderer.render(ctx, defaults, 0);
+  assert.notDeepEqual(pixel(ctx, 500, 210), live);
+  renderer.headless.setFace(null);
+  renderer.render(ctx, defaults, 0);
+  assert.deepEqual(pixel(ctx, 500, 210), live);
+});
+
+test('face-shaped replacement keeps a thick live edge, blends inward, and follows motion', () => {
+  const renderer = new EffectRenderer();
+  const { ctx } = output();
+  const feed = video();
+  const sourceContext = feed.getContext('2d');
+  sourceContext.fillStyle = '#0000ff';
+  sourceContext.fillRect(0, 0, 640, 360);
+  renderer.updateSource(feed, false, 0);
+  renderer.capture(false);
+  sourceContext.fillStyle = '#ff0000';
+  sourceContext.fillRect(0, 0, 640, 360);
+  renderer.updateSource(feed, false, 0);
+  renderer.headless.setFace(demoFaceOutline(0));
+  renderer.render(ctx, defaults, 0);
+  assert.deepEqual(pixel(ctx, 480, 213), [0, 0, 255, 255]);
+  assert.deepEqual(
+    pixel(ctx, 544, 213),
+    [255, 0, 0, 255],
+    'the original face edge has no painted border',
+  );
+  const blend = pixel(ctx, 530, 213);
+  assert.ok(
+    blend[0] > 0 && blend[2] > 0 && blend[1] === 0,
+    'fade mixes the background and live face',
+  );
+  assert.deepEqual(pixel(ctx, 540, 295), [255, 0, 0, 255], 'outside the face contour stays live');
+  renderer.headless.setFace(demoFaceOutline(0).map((p) => ({ x: p.x + 130, y: p.y + 30 })));
+  renderer.render(ctx, defaults, 0);
+  assert.deepEqual(
+    pixel(ctx, 480, 213),
+    [255, 0, 0, 255],
+    'the previous face location is restored',
+  );
+  assert.deepEqual(
+    pixel(ctx, 675, 258),
+    [0, 0, 255, 255],
+    'the opening follows the new face position',
+  );
 });

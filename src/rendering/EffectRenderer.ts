@@ -6,7 +6,7 @@ import { WIDTH, HEIGHT, type Effect, type Mode, type Settings } from './types.ts
 
 /** Own the frame source and delegate algorithms to independent effects. */
 export class EffectRenderer {
-  private source = new FrameSource();
+  readonly source = new FrameSource();
   readonly headless = new HeadlessEffect();
   private effects: Record<Mode, Effect> = {
     headless: this.headless,
@@ -26,9 +26,6 @@ export class EffectRenderer {
   }
   get hasBackground() {
     return this.headless.hasBackground;
-  }
-  activeEffect(mode: Mode) {
-    return this.effects[mode];
   }
 
   render(context: CanvasRenderingContext2D, settings: Settings, time: number) {
