@@ -131,7 +131,7 @@ test('switching effects preserves captured background until explicitly cleared',
   assert.deepEqual(pixel(ctx, 525, 213), [20, 45, 39, 255]);
 });
 
-test('live view is preserved when tracking has no face, including after losing a face', () => {
+test('live view is preserved before the first face match and after explicit geometry clearing', () => {
   const renderer = new EffectRenderer();
   const { ctx } = output();
   renderer.updateSource(video(), false, 0);

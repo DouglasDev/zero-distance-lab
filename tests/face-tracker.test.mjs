@@ -34,7 +34,7 @@ function harness(bitmap = async () => ({ close() {} })) {
   return { tracker, workers, statuses };
 }
 
-test('tracker limits requests, expires old contours, and removes missing faces immediately', async () => {
+test('tracker limits requests and holds its last contour through delayed and missing matches', async () => {
   let snapshots = 0;
   const { tracker, workers, statuses } = harness(async () => {
     snapshots++;
@@ -55,8 +55,8 @@ test('tracker limits requests, expires old contours, and removes missing faces i
   tracker.update({}, 140);
   await flush();
   assert.equal(snapshots, 1, 'requests are throttled to at most 20 per second');
-  assert.equal(tracker.face(401), null, 'stale masks disappear');
-  assert.equal(statuses.at(-1), 'searching');
+  assert.deepEqual(tracker.face(401), outline, 'delayed inference must not hide the last mask');
+  assert.equal(statuses.at(-1), 'holding');
   tracker.update({}, 450);
   await flush();
   const next = worker.messages.at(-1);
@@ -66,7 +66,20 @@ test('tracker limits requests, expires old contours, and removes missing faces i
     timestamp: next.timestamp,
     generation: next.generation,
   });
-  assert.equal(tracker.face(451), null);
+  assert.deepEqual(tracker.face(451), outline, 'a missed face must not erase the previous contour');
+  assert.equal(statuses.at(-1), 'holding');
+  tracker.update({}, 510);
+  await flush();
+  const recoveredFrame = worker.messages.at(-1);
+  const moved = outline.map((point) => ({ x: point.x + 30, y: point.y + 10 }));
+  worker.send({
+    type: 'face',
+    outline: moved,
+    timestamp: recoveredFrame.timestamp,
+    generation: recoveredFrame.generation,
+  });
+  assert.deepEqual(tracker.face(511), moved);
+  assert.equal(statuses.at(-1), 'tracking');
   tracker.stop();
   assert.equal(worker.terminated, true);
 });
@@ -145,4 +158,48 @@ test('mask feathers only inside its inset shape and leaves outer facial edges un
   assert.ok(alpha(350, 142) > alpha(353, 142));
   fillFaceMask(image, [], 0.8, 0.12);
   assert.equal(alpha(320, 142), 0, 'clearing geometry clears the previous mask');
+});
+
+test('tracker holds geometry through worker errors and retry, but clears it on camera shutdown', async () => {
+  const { tracker, workers, statuses } = harness();
+  tracker.update({}, 0);
+  workers[0].send({ type: 'ready' });
+  tracker.update({}, 100);
+  await flush();
+  const frame = workers[0].messages.at(-1);
+  const outline = demoFaceOutline(0);
+  workers[0].send({
+    type: 'face',
+    outline,
+    timestamp: frame.timestamp,
+    generation: frame.generation,
+  });
+  workers[0].send({ type: 'error' });
+  assert.equal(statuses.at(-1), 'error');
+  assert.deepEqual(tracker.face(500), outline);
+  tracker.restart();
+  tracker.update({}, 600);
+  assert.deepEqual(tracker.face(600), outline, 'loading the replacement worker keeps the mask');
+  workers[1].send({ type: 'ready' });
+  tracker.update({}, 700);
+  await flush();
+  const next = workers[1].messages.at(-1);
+  workers[1].send({
+    type: 'face',
+    outline: null,
+    timestamp: next.timestamp,
+    generation: next.generation,
+  });
+  assert.deepEqual(tracker.face(701), outline);
+  tracker.stop();
+  assert.equal(tracker.face(702), null);
+});
+
+test('larger default opening fully replaces the outer-eye and lower-lip region while preserving face edges', () => {
+  const image = { width: 640, height: 360, data: new Uint8ClampedArray(640 * 360 * 4) };
+  fillFaceMask(image, demoFaceOutline(0), 0.9, 0.08);
+  const alpha = (x, y) => image.data[(y * 640 + x) * 4 + 3];
+  assert.equal(alpha(355, 142), 255, 'opaque replacement reaches farther across the eye region');
+  assert.equal(alpha(320, 184), 255, 'opaque replacement reaches lower across the mouth region');
+  assert.equal(alpha(366, 142), 0, 'the outer facial edge remains live');
 });

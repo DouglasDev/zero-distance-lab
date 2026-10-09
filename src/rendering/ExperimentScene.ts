@@ -38,7 +38,7 @@ export class ExperimentScene extends Phaser.Scene {
   }
 
   retryTracking() {
-    this.tracker.stop();
+    this.tracker.restart();
   }
 
   dispose() {

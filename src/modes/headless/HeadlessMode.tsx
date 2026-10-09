@@ -12,7 +12,8 @@ export function HeadlessMode(props: ModeControlsProps) {
         loading: 'Loading face tracking…',
         searching: 'Looking for your face. Face the camera in good light.',
         tracking: 'Following your face',
-        error: 'Face tracking could not start. Try again or use the demo.',
+        holding: 'Holding the last position while looking for your face…',
+        error: 'Face tracking stopped. Any last position is held. Retry tracking or use the demo.',
       }[trackingStatus];
   return (
     <>
@@ -50,7 +51,7 @@ export function HeadlessMode(props: ModeControlsProps) {
       </Note>
       <RangeControl
         label="Face edge width"
-        min={10}
+        min={5}
         max={35}
         value={1 - settings.faceCoverage}
         onChange={(width) => patch({ faceCoverage: 1 - width })}
@@ -71,8 +72,8 @@ export function HeadlessMode(props: ModeControlsProps) {
         Reset controls
       </Button>
       <Note>
-        The opening disappears when your face is out of view. A visual experiment inspired by the
-        Observatories. No particular experience is promised.
+        The opening holds its last position if tracking briefly loses your face. A visual experiment
+        inspired by the Observatories. No particular experience is promised.
       </Note>
     </>
   );

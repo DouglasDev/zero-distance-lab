@@ -13,7 +13,7 @@ interface TrackerDependencies {
   assets: string;
 }
 
-/** One frame in flight, off-thread detection, and bounded landmark freshness. */
+/** One frame in flight, off-thread detection, and continuity through missed frames. */
 export class FaceTracker {
   private worker: WorkerPort | null = null;
   private ready = false;
@@ -45,7 +45,6 @@ export class FaceTracker {
     this.ready = false;
     this.busy = false;
     this.failed = true;
-    this.outline = null;
     this.generation++;
     this.setStatus('error');
   }
@@ -68,9 +67,13 @@ export class FaceTracker {
         }
         if (data.generation !== this.generation) return;
         this.busy = false;
-        this.outline = data.outline;
-        this.timestamp = data.timestamp;
-        this.setStatus(data.outline ? 'tracking' : 'searching');
+        if (data.outline) {
+          this.outline = data.outline;
+          this.timestamp = data.timestamp;
+          this.setStatus('tracking');
+        } else {
+          this.setStatus(this.outline ? 'holding' : 'searching');
+        }
       };
       worker.onerror = () => {
         if (worker === this.worker) this.fail();
@@ -109,10 +112,16 @@ export class FaceTracker {
 
   face(now: number) {
     if (now - this.timestamp > 300) {
-      if (this.status === 'tracking') this.setStatus('searching');
-      return null;
+      if (this.status === 'tracking') this.setStatus('holding');
     }
     return this.outline;
+  }
+
+  restart() {
+    const previousOutline = this.outline;
+    this.stop();
+    this.outline = previousOutline;
+    if (previousOutline) this.setStatus('holding');
   }
 
   stop() {

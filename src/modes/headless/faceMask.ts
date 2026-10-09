@@ -6,7 +6,7 @@ export function insetOutline(points: readonly Position[], coverage: number): Pos
     (sum, point) => ({ x: sum.x + point.x / points.length, y: sum.y + point.y / points.length }),
     { x: 0, y: 0 },
   );
-  const scale = Math.max(0.55, Math.min(0.9, coverage));
+  const scale = Math.max(0.55, Math.min(0.95, coverage));
   return points.map((point) => ({
     x: center.x + (point.x - center.x) * scale,
     y: center.y + (point.y - center.y) * scale,
