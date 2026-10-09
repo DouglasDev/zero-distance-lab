@@ -1,8 +1,9 @@
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
+import { FaceDetectorRuntime } from './FaceDetectorRuntime';
 import { faceOutline } from './faceOutline';
 import type { TrackingRequest, TrackingResponse } from './trackingMessages';
 
-let detector: FaceLandmarker | null = null;
+let detector: FaceDetectorRuntime | null = null;
 const send = (message: TrackingResponse) => self.postMessage(message);
 
 self.onmessage = async (event: MessageEvent<TrackingRequest>) => {
@@ -11,14 +12,18 @@ self.onmessage = async (event: MessageEvent<TrackingRequest>) => {
     try {
       // MediaPipe 1.1's module loader supports ES module workers.
       const files = await FilesetResolver.forVisionTasks(`${message.assets}/wasm`, true);
-      detector = await FaceLandmarker.createFromOptions(files, {
-        baseOptions: { modelAssetPath: `${message.assets}/face_landmarker.task`, delegate: 'CPU' },
-        runningMode: 'VIDEO',
-        numFaces: 1,
-        minFaceDetectionConfidence: 0.5,
-        minFacePresenceConfidence: 0.5,
-        minTrackingConfidence: 0.5,
-      });
+      detector = new FaceDetectorRuntime((delegate) =>
+        FaceLandmarker.createFromOptions(files, {
+          baseOptions: { modelAssetPath: `${message.assets}/face_landmarker.task`, delegate },
+          ...(delegate === 'GPU' ? { canvas: new OffscreenCanvas(320, 180) } : {}),
+          runningMode: 'VIDEO',
+          numFaces: 1,
+          minFaceDetectionConfidence: 0.5,
+          minFacePresenceConfidence: 0.5,
+          minTrackingConfidence: 0.5,
+        }),
+      );
+      await detector.initialize();
       send({ type: 'ready' });
     } catch {
       send({ type: 'error' });
@@ -27,7 +32,7 @@ self.onmessage = async (event: MessageEvent<TrackingRequest>) => {
   }
   try {
     if (!detector) throw new Error('Face tracker is not ready.');
-    const landmarks = detector.detectForVideo(message.frame, message.timestamp).faceLandmarks[0];
+    const landmarks = (await detector.detect(message.frame, message.timestamp)).faceLandmarks[0];
     send({
       type: 'face',
       outline: landmarks ? faceOutline(landmarks) : null,

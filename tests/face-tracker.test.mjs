@@ -34,7 +34,7 @@ function harness(bitmap = async () => ({ close() {} })) {
   return { tracker, workers, statuses };
 }
 
-test('tracker limits requests and holds its last contour through delayed and missing matches', async () => {
+test('tracker avoids duplicate camera frames and holds its last contour through delayed and missing matches', async () => {
   let snapshots = 0;
   const { tracker, workers, statuses } = harness(async () => {
     snapshots++;
@@ -44,17 +44,17 @@ test('tracker limits requests and holds its last contour through delayed and mis
   const worker = workers[0];
   assert.equal(worker.messages[0].type, 'init');
   worker.send({ type: 'ready' });
-  tracker.update({}, 100);
-  tracker.update({}, 120);
+  tracker.update({}, 100, 1);
+  tracker.update({}, 120, 2);
   await flush();
   assert.equal(snapshots, 1, 'only one frame can be in flight');
   const frame = worker.messages.at(-1);
   const outline = demoFaceOutline(0);
   worker.send({ type: 'face', outline, timestamp: frame.timestamp, generation: frame.generation });
   assert.deepEqual(tracker.face(140), outline);
-  tracker.update({}, 140);
+  tracker.update({}, 140, 1);
   await flush();
-  assert.equal(snapshots, 1, 'requests are throttled to at most 20 per second');
+  assert.equal(snapshots, 1, 'the same decoded camera frame is not processed twice');
   assert.deepEqual(tracker.face(401), outline, 'delayed inference must not hide the last mask');
   assert.equal(statuses.at(-1), 'holding');
   tracker.update({}, 450);
@@ -197,9 +197,28 @@ test('tracker holds geometry through worker errors and retry, but clears it on c
 
 test('larger default opening fully replaces the outer-eye and lower-lip region while preserving face edges', () => {
   const image = { width: 640, height: 360, data: new Uint8ClampedArray(640 * 360 * 4) };
-  fillFaceMask(image, demoFaceOutline(0), 0.9, 0.08);
+  fillFaceMask(image, demoFaceOutline(0), 0.95, 0.08);
   const alpha = (x, y) => image.data[(y * 640 + x) * 4 + 3];
   assert.equal(alpha(355, 142), 255, 'opaque replacement reaches farther across the eye region');
   assert.equal(alpha(320, 184), 255, 'opaque replacement reaches lower across the mouth region');
   assert.equal(alpha(366, 142), 0, 'the outer facial edge remains live');
+});
+
+test('tracker accepts the next camera frame immediately after inference without a 50 ms delay', async () => {
+  const { tracker, workers } = harness();
+  tracker.update({}, 0, 0);
+  workers[0].send({ type: 'ready' });
+  tracker.update({}, 1, 1);
+  await flush();
+  const first = workers[0].messages.at(-1);
+  workers[0].send({
+    type: 'face',
+    outline: demoFaceOutline(0),
+    timestamp: first.timestamp,
+    generation: first.generation,
+  });
+  tracker.update({}, 17, 2);
+  await flush();
+  assert.equal(workers[0].messages.filter((message) => message.type === 'frame').length, 2);
+  tracker.stop();
 });

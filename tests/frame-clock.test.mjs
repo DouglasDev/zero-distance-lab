@@ -17,3 +17,11 @@ test('paused effect time stays fixed while frames continue, then resumes without
   clock.advance(5000, true);
   assert.equal(clock.time, 280, 'long frame gaps are capped at 100 ms');
 });
+
+test('headless rendering can update at 60 fps instead of waiting for the next 30 fps slot', () => {
+  const clock = new FrameClock();
+  assert.equal(clock.advance(0, true, 60), true);
+  assert.equal(clock.advance(16.667, true, 60), true);
+  assert.equal(clock.advance(33.334, true, 60), true);
+  assert.equal(clock.advance(40, true, 60), false);
+});

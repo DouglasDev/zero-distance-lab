@@ -27,7 +27,8 @@ export class ExperimentScene extends Phaser.Scene {
         new Worker(new URL('../modes/headless/faceTracking.worker.ts', import.meta.url), {
           type: 'module',
         }),
-      bitmap: (canvas) => createImageBitmap(canvas),
+      bitmap: (canvas) =>
+        createImageBitmap(canvas, { resizeWidth: 320, resizeHeight: 180, resizeQuality: 'low' }),
       assets: new URL(`${import.meta.env.BASE_URL}tracking`, window.location.href).href,
     });
   }
@@ -54,7 +55,11 @@ export class ExperimentScene extends Phaser.Scene {
 
   update(now: number) {
     const { settings } = this.readState();
-    if (!this.texture || !this.clock.advance(now, settings.motion)) return;
+    if (
+      !this.texture ||
+      !this.clock.advance(now, settings.motion, settings.mode === 'headless' ? 60 : 30)
+    )
+      return;
     this.effectRenderer.updateSource(this.readVideo(), settings.demo, this.clock.time);
     const video = this.readVideo();
     const nowForTracking = performance.now();
@@ -65,7 +70,7 @@ export class ExperimentScene extends Phaser.Scene {
       video.readyState >= 2 &&
       video.srcObject
     ) {
-      this.tracker.update(this.effectRenderer.source.canvas, nowForTracking);
+      this.tracker.update(this.effectRenderer.source.canvas, nowForTracking, video.currentTime);
       this.effectRenderer.headless.setFace(this.tracker.face(nowForTracking));
     } else {
       this.tracker.stop();

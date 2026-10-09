@@ -21,7 +21,7 @@ import type { TrackingStatus } from './modes/headless/trackingMessages';
 const initial: Settings = {
   mode: 'headless',
   radius: 0.19,
-  faceCoverage: 0.9,
+  faceCoverage: 0.95,
   faceFeather: 0.08,
   motion: !window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   amount: 0.65,

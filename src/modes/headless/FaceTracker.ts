@@ -20,7 +20,7 @@ export class FaceTracker {
   private busy = false;
   private failed = false;
   private generation = 0;
-  private lastRequest = -Infinity;
+  private lastFrame: number | null = null;
   private outline: Position[] | null = null;
   private timestamp = -Infinity;
   private status: TrackingStatus = 'off';
@@ -84,11 +84,11 @@ export class FaceTracker {
     }
   }
 
-  update(canvas: HTMLCanvasElement, now: number) {
+  update(canvas: HTMLCanvasElement, now: number, frameId = now) {
     if (!this.worker && !this.failed) this.start();
-    if (!this.ready || !this.worker || this.busy || now - this.lastRequest < 50) return;
+    if (!this.ready || !this.worker || this.busy || frameId === this.lastFrame) return;
     this.busy = true;
-    this.lastRequest = now;
+    this.lastFrame = frameId;
     const worker = this.worker,
       generation = this.generation;
     void Promise.resolve()
@@ -133,7 +133,7 @@ export class FaceTracker {
     this.failed = false;
     this.outline = null;
     this.timestamp = -Infinity;
-    this.lastRequest = -Infinity;
+    this.lastFrame = null;
     this.setStatus('off');
   }
 }
