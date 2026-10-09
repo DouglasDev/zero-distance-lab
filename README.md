@@ -26,6 +26,7 @@ Frames and the single captured background stay in memory in the browser. The app
 ## Validation
 
 ```sh
+pnpm format:check
 pnpm test
 pnpm typecheck
 pnpm build
@@ -34,3 +35,15 @@ pnpm build
 The rendering tests use Node.js 24 or newer and a native canvas implementation to check background replacement, sphere inversion, and a stable center. Browser camera permission, playback, dragging, and fullscreen still require a manual browser check.
 
 Rendering runs at approximately 30 fps with a 640×360 camera frame and a 240×240 sphere lookup. Phone dual-camera support is outside this initial version. The experiment makes no claim to induce nondual experience.
+
+## Development structure
+
+- `src/App.tsx` coordinates the camera, selected mode, settings, and page layout.
+- `src/modes/` contains each mode's controls and effect implementation. Headless capture state and countdown live with the headless mode. Mode controls stay mounted while inactive so captured-background state survives switching experiments.
+- `src/ui/controls.tsx` contains shared styled controls and the range input.
+- `src/rendering/EffectRenderer.ts` owns the frame source and delegates to the selected effect through a common interface.
+- `src/rendering/ExperimentScene.ts` owns Phaser scheduling and pointer input. `PhaserCanvas.tsx` only bridges React mounting, cleanup, and capture commands.
+- `src/rendering/canvas.ts`, `FrameSource.ts`, and `demo.ts` contain reusable drawing helpers and source preparation.
+- `useCamera.ts` and `useFullscreen.ts` own browser resource and fullscreen lifecycles.
+
+Run `pnpm format` after edits. Husky checks formatting and TypeScript before each commit. Run `pnpm test` for rendering and scheduling regressions. See `AGENTS.md` for the inherited template conventions.

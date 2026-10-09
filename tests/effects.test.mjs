@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createCanvas } from '@napi-rs/canvas';
-import { Effects, WIDTH, HEIGHT } from '../src/effects.ts';
+import { EffectRenderer } from '../src/rendering/EffectRenderer.ts';
+import { WIDTH, HEIGHT } from '../src/rendering/types.ts';
 
 globalThis.document = {
   createElement: (name) => {
@@ -40,7 +41,7 @@ function video() {
 }
 
 test('live capture is mirrored, and the fixed opening restores its saved background', () => {
-  const fx = new Effects(),
+  const fx = new EffectRenderer(),
     { ctx } = output(),
     feed = video();
   fx.updateSource(feed, false, 0);
@@ -57,7 +58,7 @@ test('live capture is mirrored, and the fixed opening restores its saved backgro
 });
 
 test('sphere inverts both axes, keeps pixels outside the ball dark, and shades its rim', () => {
-  const fx = new Effects(),
+  const fx = new EffectRenderer(),
     { ctx } = output();
   fx.updateSource(video(), false, 0);
   fx.render(ctx, { ...defaults, mode: 'sphere' }, 0);
@@ -75,7 +76,7 @@ test('sphere inverts both axes, keeps pixels outside the ball dark, and shades i
 });
 
 test('still center stays spatially stable while the surround changes; fixed phase repeats exactly', () => {
-  const fx = new Effects(),
+  const fx = new EffectRenderer(),
     first = output(),
     second = output(),
     paused = output();
@@ -99,7 +100,7 @@ test('still center stays spatially stable while the surround changes; fixed phas
 });
 
 test('demo background contains the empty room rather than the synthetic head', () => {
-  const fx = new Effects(),
+  const fx = new EffectRenderer(),
     { ctx } = output();
   fx.updateSource(null, true, 0);
   fx.capture(true);
@@ -107,4 +108,29 @@ test('demo background contains the empty room rather than the synthetic head', (
   assert.deepEqual(pixel(ctx, 480, 210), [113, 144, 133, 255]);
   fx.clear();
   assert.equal(fx.hasBackground, false);
+});
+
+test('switching effects preserves captured background until explicitly cleared', () => {
+  const renderer = new EffectRenderer();
+  const { ctx } = output();
+  renderer.updateSource(null, true, 0);
+  renderer.capture(true);
+  renderer.render(ctx, { ...defaults, mode: 'sphere' }, 1000);
+  renderer.render(ctx, { ...defaults, mode: 'still' }, 2500);
+  renderer.render(ctx, { ...defaults, demo: true }, 2500);
+  assert.equal(renderer.hasBackground, true);
+  assert.deepEqual(pixel(ctx, 480, 210), [113, 144, 133, 255]);
+  renderer.clear();
+  renderer.render(ctx, { ...defaults, demo: true }, 2500);
+  assert.deepEqual(pixel(ctx, 480, 210), [20, 45, 39, 255]);
+});
+
+test('only the headless effect exposes dragging, with positions kept in slider bounds', () => {
+  const renderer = new EffectRenderer();
+  const effect = renderer.activeEffect('headless');
+  assert.equal(effect.containsPoint(defaults, { x: 480, y: 210 }), true);
+  assert.equal(effect.containsPoint(defaults, { x: 0, y: 0 }), false);
+  assert.deepEqual(effect.positionAtPoint({ x: -100, y: 1000 }), { x: 0.05, y: 0.95 });
+  assert.equal(renderer.activeEffect('sphere').positionAtPoint, undefined);
+  assert.equal(renderer.activeEffect('still').positionAtPoint, undefined);
 });
