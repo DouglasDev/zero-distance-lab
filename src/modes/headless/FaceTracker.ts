@@ -149,14 +149,7 @@ export class FaceTracker {
   }
 
   openingPadding(now: number) {
-    return this.guard.update(
-      this.outline,
-      this.motion.movement,
-      this.motion.confidence,
-      now - this.timestamp,
-      this.misses > 0 || this.failed,
-      now,
-    );
+    return this.guard.update(this.outline, this.motion.movement, this.motion.confidence, now);
   }
 
   performance(now: number) {

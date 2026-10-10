@@ -15,7 +15,7 @@ const alpha = (im, x, y) => im.data[(y * 640 + x) * 4 + 3];
 
 test('confident stationary tracking keeps the original retained face edge', () => {
   const guard = new OpeningGuard();
-  const padding = guard.update(face, still, 1, 30, false, 0);
+  const padding = guard.update(face, still, 1, 0);
   assert.deepEqual(padding, still);
   const original = image(),
     guarded = image();
@@ -23,49 +23,59 @@ test('confident stationary tracking keeps the original retained face edge', () =
   fillFaceMask(guarded, demoFaceOutline(0), 0.95, 0.08, padding);
   assert.deepEqual(guarded.data, original.data);
 });
-test('fast motion covers both outer eyes even with center overshoot or lag', () => {
+test('fast motion adds a modest cushion for small eye-edge alignment errors', () => {
   for (const direction of [-1, 1]) {
     const guard = new OpeningGuard();
-    const padding = guard.update(face, { x: direction * 1.5, y: 0 }, 1, 50, false, 16);
-    const shifted = face.map((p) => ({ x: p.x + direction * 6, y: p.y }));
+    const padding = guard.update(face, { x: direction * 1.5, y: 0 }, 1, 16);
+    const shifted = face.map((p) => ({ x: p.x + direction * 3, y: p.y }));
     const im = image(),
       normal = image();
     fillFaceMask(im, shifted, 0.95, 0.08, padding);
     fillFaceMask(normal, shifted, 0.95, 0.08);
-    // The true eye positions move 16 px while the estimate may err in either direction.
+    // The true eye positions differ by 3 px while the estimate may err in either direction.
     for (const eye of [215, 345])
-      for (const delta of [-16, 16]) {
+      for (const delta of [-3, 3]) {
         assert.equal(alpha(im, eye + delta, 180), 255, `eye ${eye + delta} is fully erased`);
       }
     assert.ok(
-      alpha(normal, 199, 180) < 255,
+      alpha(normal, 212, 180) < 255,
       'ordinary inset leaves the trailing eye partly visible',
     );
   }
 });
-test('uncertain matches and missed detections enlarge coverage without moving its center', () => {
+test('low confidence and ordinary slow movement do not expand the opening', () => {
   const guard = new OpeningGuard();
-  const weak = guard.update(face, still, 0, 50, false, 0);
-  assert.ok(weak.x > 0 && weak.y > 0);
-  const missed = guard.update(face, still, 0, 250, true, 16);
-  assert.ok(missed.x >= weak.x && missed.y >= weak.y);
-  const held = guard.update(face, still, 0, 3000, true, 32);
-  assert.deepEqual(held, missed, 'prolonged misses do not grow without bound');
+  for (const time of [0, 16, 100, 1000]) {
+    assert.deepEqual(guard.update(face, still, 0, time), still);
+    assert.deepEqual(guard.update(face, { x: 0.15, y: 0 }, 1, time), still);
+  }
+  assert.deepEqual(
+    guard.update(face, { x: 2, y: 1 }, 0, 1100),
+    still,
+    'untrusted movement cannot trigger expansion',
+  );
+});
+test('brief confidence loss does not pulse the opening during fast motion', () => {
+  const guard = new OpeningGuard();
+  const fast = guard.update(face, { x: 2, y: 0 }, 1, 0);
+  assert.deepEqual(guard.update(face, still, 0, 16), fast);
+  assert.deepEqual(guard.update(face, { x: 1, y: 0 }, 1, 32), fast);
+  assert.deepEqual(guard.update(face, still, 0, 48), fast);
 });
 test('coverage grows immediately, persists through reversal, then returns to normal', () => {
   const guard = new OpeningGuard();
-  guard.update(face, still, 1, 10, false, 0);
-  const fast = guard.update(face, { x: 2, y: 1 }, 1, 30, false, 16);
-  assert.equal(fast.x, 40, 'horizontal expansion is capped to a quarter of face width');
-  const stopped = guard.update(face, still, 1, 10, false, 32);
+  guard.update(face, still, 1, 0);
+  const fast = guard.update(face, { x: 2, y: 1 }, 1, 16);
+  assert.equal(fast.x, 8, 'horizontal expansion is capped to eight pixels / 5% of face width');
+  const stopped = guard.update(face, still, 1, 32);
   assert.ok(stopped.x > fast.x * 0.8, 'no abrupt contraction at a stop');
-  const reverse = guard.update(face, { x: -2, y: -1 }, 1, 20, false, 48);
+  const reverse = guard.update(face, { x: -2, y: -1 }, 1, 48);
   assert.deepEqual(reverse, fast, 'both sides remain covered on reversal');
-  assert.deepEqual(guard.update(face, still, 1, 10, false, 2000), still);
-  guard.update(face, { x: 2, y: 1 }, 1, 50, false, 2016);
+  assert.deepEqual(guard.update(face, still, 1, 2000), still);
+  guard.update(face, { x: 2, y: 1 }, 1, 2016);
   guard.reset();
-  assert.deepEqual(guard.update(face, still, 1, 10, false, 2032), still);
-  assert.deepEqual(guard.update(null, { x: 2, y: 1 }, 0, 999, true, 2048), still);
+  assert.deepEqual(guard.update(face, still, 1, 2032), still);
+  assert.deepEqual(guard.update(null, { x: 2, y: 1 }, 0, 2048), still);
 });
 test('expanded mask retains inward feathering without widening its fade', () => {
   const im = image();
