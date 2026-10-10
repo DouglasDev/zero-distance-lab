@@ -1,3 +1,4 @@
+import type { TrackingPerformance } from './modes/headless/TrackingPerformance';
 import * as Phaser from 'phaser';
 import { forwardRef, useEffect, useImperativeHandle, useRef, type RefObject } from 'react';
 import { styled } from '@linaria/react';
@@ -21,17 +22,18 @@ export interface CanvasHandle {
 interface Props {
   settings: Settings;
   video: RefObject<HTMLVideoElement | null>;
+  onPerformance: (metrics: TrackingPerformance | null) => void;
   onTracking: (status: TrackingStatus) => void;
 }
 
 /** Bridge React and Phaser; the scene owns scheduling, input, and rendering. */
 export const PhaserCanvas = forwardRef<CanvasHandle, Props>(function PhaserCanvas(
-  { settings, video, onTracking },
+  { settings, video, onTracking, onPerformance },
   ref,
 ) {
   const host = useRef<HTMLDivElement>(null);
-  const live = useRef({ settings, onTracking });
-  live.current = { settings, onTracking };
+  const live = useRef({ settings, onTracking, onPerformance });
+  live.current = { settings, onTracking, onPerformance };
   const scene = useRef<ExperimentScene | null>(null);
 
   useImperativeHandle(

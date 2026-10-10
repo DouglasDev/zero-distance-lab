@@ -2,6 +2,7 @@ export type Mode = 'headless' | 'sphere' | 'still';
 export interface Settings {
   mode: Mode;
   radius: number;
+  facePrediction: boolean;
   faceCoverage: number;
   faceFeather: number;
   motion: boolean;

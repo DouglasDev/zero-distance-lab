@@ -25,6 +25,10 @@ export class FaceDetectorRuntime {
     }
   }
 
+  get backend() {
+    return this.delegate;
+  }
+
   async detect(frame: ImageBitmap, timestamp: number) {
     if (!this.detector) throw new Error('Face tracker is not ready.');
     try {

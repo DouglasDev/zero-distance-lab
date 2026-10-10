@@ -1,3 +1,4 @@
+import type { TrackingPerformance } from './modes/headless/TrackingPerformance';
 import { useEffect, useRef, useState } from 'react';
 import {
   Page,
@@ -21,6 +22,7 @@ import type { TrackingStatus } from './modes/headless/trackingMessages';
 const initial: Settings = {
   mode: 'headless',
   radius: 0.19,
+  facePrediction: true,
   faceCoverage: 0.95,
   faceFeather: 0.08,
   motion: !window.matchMedia('(prefers-reduced-motion: reduce)').matches,
@@ -30,6 +32,7 @@ const initial: Settings = {
 
 export function App() {
   const camera = useCamera();
+  const [performanceMetrics, setPerformanceMetrics] = useState<TrackingPerformance | null>(null);
   const [trackingStatus, setTrackingStatus] = useState<TrackingStatus>('off');
   const [settings, setSettings] = useState(initial);
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -102,6 +105,7 @@ export function App() {
               settings={settings}
               video={camera.video}
               onTracking={setTrackingStatus}
+              onPerformance={setPerformanceMetrics}
             />
             {countdown !== null && (
               <Overlay role="status">
@@ -152,6 +156,7 @@ export function App() {
                 cameraStatus={camera.status}
                 onCountdown={setCountdown}
                 trackingStatus={trackingStatus}
+                performanceMetrics={performanceMetrics}
               />
             </div>
           ))}

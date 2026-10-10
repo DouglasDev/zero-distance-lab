@@ -1,3 +1,4 @@
+import { PerformanceDetails } from './PerformanceDetails';
 import { Actions, Button, Note, RangeControl } from '../../ui/controls';
 import type { ModeControlsProps } from '../types';
 import { useBackgroundCapture } from './useBackgroundCapture';
@@ -63,6 +64,16 @@ export function HeadlessMode(props: ModeControlsProps) {
         value={settings.faceFeather}
         onChange={(faceFeather) => patch({ faceFeather })}
       />
+      <Button
+        aria-pressed={settings.facePrediction}
+        onClick={() => patch({ facePrediction: !settings.facePrediction })}
+      >
+        Motion prediction: {settings.facePrediction ? 'on' : 'off'}
+      </Button>
+      <Note>
+        Prediction helps quick movement. Turn it off if the opening overshoots when you stop.
+      </Note>
+      <PerformanceDetails metrics={props.performanceMetrics} />
       <Button
         onClick={() => {
           capture.cancel();

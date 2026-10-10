@@ -24,7 +24,7 @@ self.onmessage = async (event: MessageEvent<TrackingRequest>) => {
         }),
       );
       await detector.initialize();
-      send({ type: 'ready' });
+      send({ type: 'ready', backend: detector.backend });
     } catch {
       send({ type: 'error' });
     }
@@ -32,9 +32,12 @@ self.onmessage = async (event: MessageEvent<TrackingRequest>) => {
   }
   try {
     if (!detector) throw new Error('Face tracker is not ready.');
+    const started = performance.now();
     const landmarks = (await detector.detect(message.frame, message.timestamp)).faceLandmarks[0];
     send({
       type: 'face',
+      inferenceMs: performance.now() - started,
+      backend: detector.backend,
       outline: landmarks ? faceOutline(landmarks) : null,
       timestamp: message.timestamp,
       generation: message.generation,

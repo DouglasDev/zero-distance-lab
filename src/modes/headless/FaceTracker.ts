@@ -1,3 +1,6 @@
+import { MotionCompensator } from './MotionCompensator.ts';
+import { PerformanceMeter } from './TrackingPerformance.ts';
+import type { GrayFrame } from './frameMotion.ts';
 import type { Position } from '../../rendering/types.ts';
 import type { TrackingRequest, TrackingResponse, TrackingStatus } from './trackingMessages.ts';
 
@@ -11,10 +14,15 @@ interface TrackerDependencies {
   worker: () => WorkerPort;
   bitmap: (canvas: HTMLCanvasElement, highDetail: boolean) => Promise<ImageBitmap>;
   assets: string;
+  motionFrame?: (canvas: HTMLCanvasElement) => GrayFrame;
+  now?: () => number;
 }
 
 /** One frame in flight, off-thread detection, and continuity through missed frames. */
 export class FaceTracker {
+  private motion = new MotionCompensator();
+  private meter = new PerformanceMeter();
+  private lastCameraFrame: number | null = null;
   private worker: WorkerPort | null = null;
   private ready = false;
   private busy = false;
@@ -63,11 +71,19 @@ export class FaceTracker {
         }
         if (data.type === 'ready') {
           this.ready = true;
+          this.meter.backend = data.backend ?? 'unknown';
           this.setStatus('searching');
           return;
         }
         if (data.generation !== this.generation) return;
         this.busy = false;
+        this.meter.result(
+          this.dependencies.now?.() ?? performance.now(),
+          data.timestamp,
+          data.inferenceMs ?? 0,
+          data.backend,
+          Boolean(data.outline),
+        );
         if (data.outline) {
           this.misses = 0;
           this.outline = data.outline;
@@ -88,6 +104,15 @@ export class FaceTracker {
   }
 
   update(canvas: HTMLCanvasElement, now: number, frameId = now) {
+    if (frameId !== this.lastCameraFrame) {
+      this.lastCameraFrame = frameId;
+      this.meter.camera(now);
+      if (this.dependencies.motionFrame) {
+        // Use the last displayed position to choose textured points within the unmodified face.
+        const region = this.motion.correct(this.outline, this.timestamp, now, false);
+        this.motion.update(this.dependencies.motionFrame(canvas), region, now);
+      }
+    }
     if (!this.worker && !this.failed) this.start();
     if (!this.ready || !this.worker || this.busy || frameId === this.lastFrame) return;
     this.busy = true;
@@ -114,15 +139,19 @@ export class FaceTracker {
       });
   }
 
-  face(now: number) {
+  face(now: number, predict = false) {
     if (now - this.timestamp > 300) {
       if (this.status === 'tracking') this.setStatus('holding');
     }
-    return this.outline;
+    return this.motion.correct(this.outline, this.timestamp, now, predict);
+  }
+
+  performance(now: number) {
+    return this.meter.snapshot(now, this.motion.confidence);
   }
 
   restart() {
-    const previousOutline = this.outline;
+    const previousOutline = this.face(this.dependencies.now?.() ?? performance.now());
     this.stop();
     this.outline = previousOutline;
     if (previousOutline) this.setStatus('holding');
@@ -139,6 +168,9 @@ export class FaceTracker {
     this.timestamp = -Infinity;
     this.lastFrame = null;
     this.misses = 0;
+    this.lastCameraFrame = null;
+    this.motion.reset();
+    this.meter.reset();
     this.setStatus('off');
   }
 }
