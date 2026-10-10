@@ -136,14 +136,15 @@ test('unsupported snapshot creation becomes a recoverable tracking error', async
   tracker.stop();
 });
 
-test('landmark perimeter follows measured coordinates, including asymmetry and tilt', () => {
-  const landmarks = Array.from({ length: 478 }, () => ({ x: 0.5, y: 0.5 }));
+test('frontal landmark perimeter follows measured coordinates without profile padding', () => {
+  const landmarks = Array.from({ length: 478 }, () => ({ x: 0.5, y: 0.4 }));
   FACE_OVAL.forEach((index, i) => {
-    landmarks[index] = { x: 0.2 + i / 200, y: 0.3 + i / 300 };
+    const angle = (i / 36) * Math.PI * 2 - Math.PI / 2;
+    landmarks[index] = { x: 0.5 + Math.cos(angle) * 0.1, y: 0.4 + Math.sin(angle) * 0.15 };
   });
   const contour = faceOutline(landmarks);
   assert.equal(contour.length, 36);
-  assert.deepEqual(contour[0], { x: 0.2 * 640, y: 0.3 * 360 });
+  assert.deepEqual(contour[0], { x: landmarks[10].x * 640, y: landmarks[10].y * 360 });
   assert.deepEqual(contour[35], { x: landmarks[109].x * 640, y: landmarks[109].y * 360 });
   assert.equal(faceOutline([]), null);
 });
@@ -220,5 +221,28 @@ test('tracker accepts the next camera frame immediately after inference without 
   tracker.update({}, 17, 2);
   await flush();
   assert.equal(workers[0].messages.filter((message) => message.type === 'frame').length, 2);
+  tracker.stop();
+});
+
+test('missed detections retry with more detail and return to fast input after reacquisition', async () => {
+  const resolutions = [];
+  const { tracker, workers } = harness(async (_canvas, highDetail) => {
+    resolutions.push(highDetail);
+    return { close() {} };
+  });
+  tracker.update({}, 0);
+  workers[0].send({ type: 'ready' });
+  for (let i = 1; i <= 4; i++) {
+    tracker.update({}, i * 20, i);
+    await flush();
+    const frame = workers[0].messages.at(-1);
+    workers[0].send({
+      type: 'face',
+      outline: i === 3 ? demoFaceOutline(0) : null,
+      timestamp: frame.timestamp,
+      generation: frame.generation,
+    });
+  }
+  assert.deepEqual(resolutions, [false, false, true, false]);
   tracker.stop();
 });

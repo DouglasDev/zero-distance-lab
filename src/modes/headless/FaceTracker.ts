@@ -9,7 +9,7 @@ interface WorkerPort {
 }
 interface TrackerDependencies {
   worker: () => WorkerPort;
-  bitmap: (canvas: HTMLCanvasElement) => Promise<ImageBitmap>;
+  bitmap: (canvas: HTMLCanvasElement, highDetail: boolean) => Promise<ImageBitmap>;
   assets: string;
 }
 
@@ -18,6 +18,7 @@ export class FaceTracker {
   private worker: WorkerPort | null = null;
   private ready = false;
   private busy = false;
+  private misses = 0;
   private failed = false;
   private generation = 0;
   private lastFrame: number | null = null;
@@ -68,10 +69,12 @@ export class FaceTracker {
         if (data.generation !== this.generation) return;
         this.busy = false;
         if (data.outline) {
+          this.misses = 0;
           this.outline = data.outline;
           this.timestamp = data.timestamp;
           this.setStatus('tracking');
         } else {
+          this.misses++;
           this.setStatus(this.outline ? 'holding' : 'searching');
         }
       };
@@ -90,9 +93,10 @@ export class FaceTracker {
     this.busy = true;
     this.lastFrame = frameId;
     const worker = this.worker,
-      generation = this.generation;
+      generation = this.generation,
+      highDetail = this.misses >= 2;
     void Promise.resolve()
-      .then(() => this.dependencies.bitmap(canvas))
+      .then(() => this.dependencies.bitmap(canvas, highDetail))
       .then((frame) => {
         if (worker !== this.worker || generation !== this.generation) {
           frame.close();
@@ -134,6 +138,7 @@ export class FaceTracker {
     this.outline = null;
     this.timestamp = -Infinity;
     this.lastFrame = null;
+    this.misses = 0;
     this.setStatus('off');
   }
 }

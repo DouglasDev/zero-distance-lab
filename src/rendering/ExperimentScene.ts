@@ -27,8 +27,12 @@ export class ExperimentScene extends Phaser.Scene {
         new Worker(new URL('../modes/headless/faceTracking.worker.ts', import.meta.url), {
           type: 'module',
         }),
-      bitmap: (canvas) =>
-        createImageBitmap(canvas, { resizeWidth: 320, resizeHeight: 180, resizeQuality: 'low' }),
+      bitmap: (canvas, highDetail) =>
+        createImageBitmap(canvas, {
+          resizeWidth: highDetail ? 640 : 320,
+          resizeHeight: highDetail ? 360 : 180,
+          resizeQuality: 'low',
+        }),
       assets: new URL(`${import.meta.env.BASE_URL}tracking`, window.location.href).href,
     });
   }

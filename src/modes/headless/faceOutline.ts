@@ -1,3 +1,4 @@
+import { profileContour } from './profileContour.ts';
 import { SOURCE_WIDTH, SOURCE_HEIGHT, type Position } from '../../rendering/types.ts';
 
 // The ordered perimeter of MediaPipe's FACE_LANDMARKS_FACE_OVAL.
@@ -10,7 +11,23 @@ export function faceOutline(landmarks: readonly Position[]): Position[] | null {
   const points = FACE_OVAL.map((index) => landmarks[index]);
   if (points.some((point) => !point || !Number.isFinite(point.x) || !Number.isFinite(point.y)))
     return null;
-  return points.map((point) => ({ x: point.x * SOURCE_WIDTH, y: point.y * SOURCE_HEIGHT }));
+  const pixel = (point: Position): Position => ({
+    x: point.x * SOURCE_WIDTH,
+    y: point.y * SOURCE_HEIGHT,
+  });
+  const oval = points.map(pixel);
+  // Nose bridge/tip/nostrils and upper/lower/outer lips can protrude beyond FACE_OVAL in profile.
+  const featureIndices = [
+    168, 6, 5, 4, 1, 19, 94, 2, 98, 327, 61, 291, 0, 17, 13, 14, 37, 267, 39, 269, 40, 270,
+  ];
+  const valid = (point: Position | undefined): point is Position =>
+    Boolean(point && Number.isFinite(point.x) && Number.isFinite(point.y));
+  const features = featureIndices
+    .map((index) => landmarks[index])
+    .filter(valid)
+    .map(pixel);
+  const nose = landmarks[1];
+  return profileContour(oval, features, valid(nose) ? pixel(nose) : undefined);
 }
 
 export function demoFaceOutline(time: number): Position[] {
