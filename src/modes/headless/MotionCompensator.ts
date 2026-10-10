@@ -76,6 +76,10 @@ export class MotionCompensator {
     return corrected;
   }
 
+  get movement(): Position {
+    return this.velocity;
+  }
+
   reset() {
     this.cached = null;
     this.previous = null;

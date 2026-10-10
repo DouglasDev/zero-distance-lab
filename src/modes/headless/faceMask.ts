@@ -1,3 +1,4 @@
+import { expandOutline } from './outlineGeometry.ts';
 import type { Position } from '../../rendering/types.ts';
 
 /** Scale toward the face center, leaving a band of the original face visible. */
@@ -19,19 +20,22 @@ export function fillFaceMask(
   points: readonly Position[],
   coverage: number,
   feather: number,
+  padding: Position = { x: 0, y: 0 },
 ) {
   image.data.fill(0);
   if (points.length < 3 || points.some((p) => !Number.isFinite(p.x) || !Number.isFinite(p.y)))
     return;
-  const contour = insetOutline(points, coverage);
+  const inset = insetOutline(points, coverage);
+  const contour = expandOutline(inset, padding);
   const xs = contour.map((p) => p.x),
     ys = contour.map((p) => p.y);
   const left = Math.max(0, Math.floor(Math.min(...xs))),
     right = Math.min(image.width - 1, Math.ceil(Math.max(...xs)));
   const top = Math.max(0, Math.floor(Math.min(...ys))),
     bottom = Math.min(image.height - 1, Math.ceil(Math.max(...ys)));
-  const width = Math.max(...xs) - Math.min(...xs),
-    height = Math.max(...ys) - Math.min(...ys);
+  // Expansion must add opaque coverage, not widen the feather and re-expose the eyes.
+  const width = Math.max(...inset.map((p) => p.x)) - Math.min(...inset.map((p) => p.x)),
+    height = Math.max(...inset.map((p) => p.y)) - Math.min(...inset.map((p) => p.y));
   const fade = Math.max(0.5, Math.min(width, height) * Math.max(0, Math.min(0.25, feather)));
   const edges = contour.map((a, index) => {
     const b = contour[(index + 1) % contour.length];

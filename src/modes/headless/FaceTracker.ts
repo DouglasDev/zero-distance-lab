@@ -1,3 +1,4 @@
+import { OpeningGuard } from './OpeningGuard.ts';
 import { MotionCompensator } from './MotionCompensator.ts';
 import { PerformanceMeter } from './TrackingPerformance.ts';
 import type { GrayFrame } from './frameMotion.ts';
@@ -21,6 +22,7 @@ interface TrackerDependencies {
 /** One frame in flight, off-thread detection, and continuity through missed frames. */
 export class FaceTracker {
   private motion = new MotionCompensator();
+  private guard = new OpeningGuard();
   private meter = new PerformanceMeter();
   private lastCameraFrame: number | null = null;
   private worker: WorkerPort | null = null;
@@ -146,6 +148,17 @@ export class FaceTracker {
     return this.motion.correct(this.outline, this.timestamp, now, predict);
   }
 
+  openingPadding(now: number) {
+    return this.guard.update(
+      this.outline,
+      this.motion.movement,
+      this.motion.confidence,
+      now - this.timestamp,
+      this.misses > 0 || this.failed,
+      now,
+    );
+  }
+
   performance(now: number) {
     return this.meter.snapshot(now, this.motion.confidence);
   }
@@ -170,6 +183,7 @@ export class FaceTracker {
     this.misses = 0;
     this.lastCameraFrame = null;
     this.motion.reset();
+    this.guard.reset();
     this.meter.reset();
     this.setStatus('off');
   }

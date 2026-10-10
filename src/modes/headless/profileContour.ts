@@ -1,26 +1,6 @@
 import type { Position } from '../../rendering/types.ts';
 
-function cross(a: Position, b: Position, c: Position) {
-  return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
-}
-
-/** Projected silhouette of the facial oval and protruding facial features. */
-function convexHull(points: readonly Position[]): Position[] {
-  const sorted = [...points].sort((a, b) => a.x - b.x || a.y - b.y);
-  const lower: Position[] = [],
-    upper: Position[] = [];
-  for (const point of sorted) {
-    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], point) <= 0)
-      lower.pop();
-    lower.push(point);
-  }
-  for (const point of sorted.reverse()) {
-    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], point) <= 0)
-      upper.pop();
-    upper.push(point);
-  }
-  return [...lower.slice(0, -1), ...upper.slice(0, -1)];
-}
+import { convexHull } from './outlineGeometry.ts';
 
 /** Keep frontal shape unchanged, but cover the bridge, nose and lips as they turn toward the silhouette. */
 export function profileContour(

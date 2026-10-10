@@ -83,6 +83,7 @@ export class ExperimentScene extends Phaser.Scene {
       this.tracker.update(this.effectRenderer.source.canvas, nowForTracking, video.currentTime);
       this.effectRenderer.headless.setFace(
         this.tracker.face(nowForTracking, settings.facePrediction),
+        this.tracker.openingPadding(nowForTracking),
       );
     } else {
       this.tracker.stop();

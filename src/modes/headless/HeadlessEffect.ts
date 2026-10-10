@@ -26,12 +26,15 @@ export class HeadlessEffect implements Effect {
   );
   private contour: Position[] | null = null;
   private lastFace: Position[] | null = null;
+  private padding: Position = { x: 0, y: 0 };
+  private lastPadding: Position = { x: 0, y: 0 };
   private lastCoverage = -1;
   private lastFeather = -1;
   hasBackground = false;
 
-  setFace(contour: Position[] | null) {
+  setFace(contour: Position[] | null, padding: Position = { x: 0, y: 0 }) {
     this.contour = contour;
+    this.padding = padding;
   }
 
   capture(source: SourceFrame, demo: boolean) {
@@ -49,7 +52,10 @@ export class HeadlessEffect implements Effect {
     ctx.drawImage(source.canvas, 0, 0, WIDTH, HEIGHT);
     const face = settings.demo ? demoFaceOutline(time) : this.contour;
     if (!face) return;
+    const padding = settings.demo ? { x: 0, y: 0 } : this.padding;
     if (
+      padding.x !== this.lastPadding.x ||
+      padding.y !== this.lastPadding.y ||
       face !== this.lastFace ||
       settings.faceCoverage !== this.lastCoverage ||
       settings.faceFeather !== this.lastFeather
@@ -59,8 +65,10 @@ export class HeadlessEffect implements Effect {
         face.map((point) => ({ x: point.x / MASK_SCALE, y: point.y / MASK_SCALE })),
         settings.faceCoverage,
         settings.faceFeather,
+        { x: padding.x / MASK_SCALE, y: padding.y / MASK_SCALE },
       );
       this.mask.context.putImageData(this.maskPixels, 0, 0);
+      this.lastPadding = padding;
       this.lastFace = face;
       this.lastCoverage = settings.faceCoverage;
       this.lastFeather = settings.faceFeather;
