@@ -1,7 +1,7 @@
 import { PerformanceDetails } from './PerformanceDetails';
 import { Actions, Button, Note, RangeControl } from '../../ui/controls';
 import type { ModeControlsProps } from '../types';
-import { useBackgroundCapture } from './useBackgroundCapture';
+import { useBackgroundCapture } from '../../ui/useBackgroundCapture';
 
 export function HeadlessMode(props: ModeControlsProps) {
   const { settings, patch, reset, cameraStatus, trackingStatus, canvas } = props;

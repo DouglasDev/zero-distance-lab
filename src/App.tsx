@@ -21,6 +21,10 @@ import type { TrackingStatus } from './modes/headless/trackingMessages';
 
 const initial: Settings = {
   mode: 'headless',
+  projectionVariant: 'face',
+  projectionSize: 1,
+  projectionOpacity: 0.75,
+  projectionBlend: 'source-over',
   radius: 0.19,
   facePrediction: true,
   faceCoverage: 0.95,
@@ -61,7 +65,7 @@ export function App() {
       <Header>
         <div>
           <h1>Zero Distance Lab</h1>
-          <p>Three small experiments in seeing.</p>
+          <p>Four experiments in seeing.</p>
         </div>
         <Actions>
           {camera.status === 'off' ? (

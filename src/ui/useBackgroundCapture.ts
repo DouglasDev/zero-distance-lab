@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import type { ModeControlsProps } from '../types';
+import type { ModeControlsProps } from '../modes/types';
 
-/** Capture state belongs to the headless mode; keep it across tab switches. */
+/** Shared room capture controls; keep the captured image across experiment switches. */
 export function useBackgroundCapture({
   canvas,
   settings,
@@ -20,7 +20,8 @@ export function useBackgroundCapture({
 
   useEffect(() => {
     if (!active) setCountdown(null);
-  }, [active]);
+    else setBackground(canvas.current?.hasBackground() ?? false);
+  }, [active, canvas]);
 
   useEffect(() => {
     onCountdown(active ? countdown : null);

@@ -17,7 +17,7 @@ Open the localhost URL printed by Vite in a laptop browser. Camera access requir
 - **Glass sphere:** The mirrored camera image is inverted in both axes and radially warped inside a shaded circle. This approximates the appearance of a ball lens; it is not a measured optical simulation.
 - **Still center:** A live upright center remains spatially stable while the surrounding enlarged view and rings oscillate. “Pause motion” stops the animation without stopping the webcam.
 
-“Use demo” releases the webcam and shows a synthetic person and room. All three modes work in demo mode. “Capture demo room” uses the clean synthetic room immediately. Fullscreen can be exited with Escape.
+“Use demo” releases the webcam and shows a synthetic person and room. All four modes and all five Universe mirror versions work in demo mode. “Capture demo room” uses the clean synthetic room immediately. Fullscreen can be exited with Escape.
 
 ## Privacy and lifecycle
 
@@ -65,3 +65,13 @@ Between landmark results, a sparse two-level patch tracker measures translation 
 Motion prediction is enabled by default, with a six-millisecond lead capped at eight source pixels or 4% of face width. It only applies to recent, confident movement and can be disabled in Headless mirror if it overshoots. This reduces displayed lag without raising the model's inference rate. The collapsed Tracking performance panel reports observed camera updates, successful detections, worker inference time, landmark age, acceleration backend, and motion match confidence. Camera fps measures decoded frames observed by the render loop; landmark age includes snapshot, queue, and inference delays but does not measure the camera hardware's exposure latency. Metrics refresh twice a second and remain local.
 
 The opening adds a small cushion only during confident, fast measured movement (starting at 1.5 face widths/heights per second, with a lower release threshold). Extra coverage is capped at eight source pixels and 5% of face width / 4% of face height per edge. A brief 100 ms hold prevents confidence flicker from pulsing the boundary, followed by a 120 ms gradual release. Low confidence, old landmarks, and missed detections alone do not enlarge the opening. Feathering stays inside the expanded boundary at its original width.
+
+## Universe mirror
+
+The fourth experiment has five versions: one large face, a field of small faces, eyes only, your visible body, and a fierce deity. Capture the empty room, return to view, and switch versions freely. Features remain anchored in the background while live expressions update. Size, opacity, and Natural / Luminous / Subtle blending adjust how the projections sit in the room. Demo uses synthetic face and body data without starting any tracking worker.
+
+Face versions use the existing local landmark worker to sample softened live eye, nose, and mouth textures once per render and reuse them across the room. Eyes-only never samples nose or mouth textures for display. Body projection uses the official MediaPipe Pose Landmarker Lite model and its person segmentation mask, preserving the matched source snapshot so a delayed mask does not crop a newer frame. The body worker has GPU-to-CPU fallback, one frame in flight, cancellation-safe transfers, and a retry control. Missing or stale projection matches disappear after 300 ms rather than displaying unrelated room pixels; the existing headless mirror still holds its contour.
+
+The deity is an original 2D, deity-yoga-inspired wrathful figure, with a flame aureole, crown, third eye, and six arms. Your face is projected into its head; visible shoulder/elbow/wrist and hip/knee/ankle chains retarget its limbs. Three pairs of arms mirror your two arms with angular offsets. Hidden joints use a resting pose, and head position controls lean. It is an artistic visualization rather than a named traditional deity or a 3D reconstruction. Cropped body detection can fail if too little torso is visible; step back and use good light. Face and body workers run together only for this version. Other versions load just the tracker they need; switching modes or stopping the camera releases workers and owned snapshots.
+
+Both models and WebAssembly are served from this app. Camera images, masks, and landmarks stay in browser memory. Tests cover five distinct renderings, eyes-only isolation, background preservation, segmentation alpha, pose-driven deity movement, tracker cancellation and expiry, and unchanged headless behavior. Real-camera alignment and detection still require a manual check.

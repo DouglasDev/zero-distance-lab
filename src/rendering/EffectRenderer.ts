@@ -1,3 +1,4 @@
+import { AwarenessEffect } from '../modes/awareness/AwarenessEffect.ts';
 import { HeadlessEffect } from '../modes/headless/HeadlessEffect.ts';
 import { SphereEffect } from '../modes/sphere/SphereEffect.ts';
 import { StillCenterEffect } from '../modes/still/StillCenterEffect.ts';
@@ -8,8 +9,10 @@ import { WIDTH, HEIGHT, type Effect, type Mode, type Settings } from './types.ts
 export class EffectRenderer {
   readonly source = new FrameSource();
   readonly headless = new HeadlessEffect();
+  readonly awareness = new AwarenessEffect();
   private effects: Record<Mode, Effect> = {
     headless: this.headless,
+    awareness: this.awareness,
     sphere: new SphereEffect(),
     still: new StillCenterEffect(),
   };
@@ -20,9 +23,11 @@ export class EffectRenderer {
 
   capture(demo: boolean) {
     this.headless.capture(this.source, demo);
+    this.awareness.capture(this.source, demo);
   }
   clear() {
     this.headless.clear();
+    this.awareness.clear();
   }
   get hasBackground() {
     return this.headless.hasBackground;

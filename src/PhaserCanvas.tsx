@@ -16,6 +16,7 @@ const Host = styled.div`
 `;
 export interface CanvasHandle {
   capture: () => boolean;
+  hasBackground: () => boolean;
   clear: () => void;
   retryTracking: () => void;
 }
@@ -40,6 +41,7 @@ export const PhaserCanvas = forwardRef<CanvasHandle, Props>(function PhaserCanva
     ref,
     () => ({
       capture: () => scene.current?.capture() ?? false,
+      hasBackground: () => scene.current?.effectRenderer.hasBackground ?? false,
       clear: () => scene.current?.effectRenderer.clear(),
       retryTracking: () => scene.current?.retryTracking(),
     }),

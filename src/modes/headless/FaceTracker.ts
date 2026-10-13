@@ -17,6 +17,7 @@ interface TrackerDependencies {
   assets: string;
   motionFrame?: (canvas: HTMLCanvasElement) => GrayFrame;
   now?: () => number;
+  wantFeatures?: () => boolean;
 }
 
 /** One frame in flight, off-thread detection, and continuity through missed frames. */
@@ -33,6 +34,7 @@ export class FaceTracker {
   private generation = 0;
   private lastFrame: number | null = null;
   private outline: Position[] | null = null;
+  private landmarks: Position[] | null = null;
   private timestamp = -Infinity;
   private status: TrackingStatus = 'off';
   private dependencies: TrackerDependencies;
@@ -89,6 +91,7 @@ export class FaceTracker {
         if (data.outline) {
           this.misses = 0;
           this.outline = data.outline;
+          this.landmarks = data.landmarks ?? null;
           this.timestamp = data.timestamp;
           this.setStatus('tracking');
         } else {
@@ -130,7 +133,16 @@ export class FaceTracker {
           return;
         }
         try {
-          worker.postMessage({ type: 'frame', frame, timestamp: now, generation }, [frame]);
+          worker.postMessage(
+            {
+              type: 'frame',
+              frame,
+              timestamp: now,
+              generation,
+              features: this.dependencies.wantFeatures?.() ?? false,
+            },
+            [frame],
+          );
         } catch {
           frame.close();
           this.fail();
@@ -146,6 +158,23 @@ export class FaceTracker {
       if (this.status === 'tracking') this.setStatus('holding');
     }
     return this.motion.correct(this.outline, this.timestamp, now, predict);
+  }
+
+  get trackingStatus() {
+    return this.status;
+  }
+
+  features(now: number) {
+    if (now - this.timestamp > 300) {
+      this.face(now);
+      return null;
+    }
+    if (!this.landmarks || !this.outline) return null;
+    const corrected = this.motion.correct(this.outline, this.timestamp, now);
+    if (!corrected) return null;
+    const x = corrected[0].x - this.outline[0].x,
+      y = corrected[0].y - this.outline[0].y;
+    return this.landmarks.map((p) => ({ x: p.x + x, y: p.y + y }));
   }
 
   openingPadding(now: number) {
@@ -171,6 +200,7 @@ export class FaceTracker {
     this.busy = false;
     this.failed = false;
     this.outline = null;
+    this.landmarks = null;
     this.timestamp = -Infinity;
     this.lastFrame = null;
     this.misses = 0;

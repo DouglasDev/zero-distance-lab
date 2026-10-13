@@ -1,3 +1,5 @@
+import { combinedTrackingStatus } from '../modes/awareness/trackingStatus.ts';
+import { BodyTracker } from '../modes/awareness/BodyTracker.ts';
 import { MotionFrameSampler } from '../modes/headless/MotionFrameSampler';
 import type { TrackingPerformance } from '../modes/headless/TrackingPerformance';
 import * as Phaser from 'phaser';
@@ -18,8 +20,10 @@ export class ExperimentScene extends Phaser.Scene {
   private clock = new FrameClock();
   private texture: Phaser.Textures.CanvasTexture | null = null;
   private lastPerformance = -Infinity;
+  private lastTracking: TrackingStatus = 'off';
   private sampler = new MotionFrameSampler();
   private tracker: FaceTracker;
+  private bodyTracker: BodyTracker;
   private readState: () => SceneState;
   private readVideo: () => HTMLVideoElement | null;
 
@@ -27,7 +31,17 @@ export class ExperimentScene extends Phaser.Scene {
     super('experiment');
     this.readState = readState;
     this.readVideo = readVideo;
-    this.tracker = new FaceTracker((status) => this.readState().onTracking(status), {
+    const assets = new URL(`${import.meta.env.BASE_URL}tracking`, window.location.href).href;
+    this.bodyTracker = new BodyTracker(() => {}, {
+      worker: () =>
+        new Worker(new URL('../modes/awareness/bodyTracking.worker.ts', import.meta.url), {
+          type: 'module',
+        }),
+      bitmap: (canvas) =>
+        createImageBitmap(canvas, { resizeWidth: 320, resizeHeight: 180, resizeQuality: 'low' }),
+      assets,
+    });
+    this.tracker = new FaceTracker(() => {}, {
       worker: () =>
         new Worker(new URL('../modes/headless/faceTracking.worker.ts', import.meta.url), {
           type: 'module',
@@ -39,7 +53,7 @@ export class ExperimentScene extends Phaser.Scene {
           resizeQuality: 'low',
         }),
       motionFrame: (canvas) => this.sampler.capture(canvas),
-      assets: new URL(`${import.meta.env.BASE_URL}tracking`, window.location.href).href,
+      assets,
     });
   }
 
@@ -50,10 +64,12 @@ export class ExperimentScene extends Phaser.Scene {
 
   retryTracking() {
     this.tracker.restart();
+    this.bodyTracker.restart();
   }
 
   dispose() {
     this.tracker.stop();
+    this.bodyTracker.stop();
   }
 
   capture() {
@@ -67,27 +83,52 @@ export class ExperimentScene extends Phaser.Scene {
     const { settings } = this.readState();
     if (
       !this.texture ||
-      !this.clock.advance(now, settings.motion, settings.mode === 'headless' ? 60 : 30)
+      !this.clock.advance(
+        now,
+        settings.motion,
+        settings.mode === 'headless' || settings.mode === 'awareness' ? 60 : 30,
+      )
     )
       return;
     this.effectRenderer.updateSource(this.readVideo(), settings.demo, this.clock.time);
     const video = this.readVideo();
     const nowForTracking = performance.now();
-    if (
-      settings.mode === 'headless' &&
-      !settings.demo &&
-      video &&
-      video.readyState >= 2 &&
-      video.srcObject
-    ) {
+    const live = !settings.demo && video && video.readyState >= 2 && video.srcObject;
+    const needsBody =
+      settings.mode === 'awareness' &&
+      (settings.projectionVariant === 'body' || settings.projectionVariant === 'deity');
+    const needsFace =
+      settings.mode === 'headless' ||
+      (settings.mode === 'awareness' && settings.projectionVariant !== 'body');
+    if (live && needsFace)
       this.tracker.update(this.effectRenderer.source.canvas, nowForTracking, video.currentTime);
-      this.effectRenderer.headless.setFace(
-        this.tracker.face(nowForTracking, settings.facePrediction),
-        this.tracker.openingPadding(nowForTracking),
-      );
-    } else {
-      this.tracker.stop();
-      this.effectRenderer.headless.setFace(null);
+    else this.tracker.stop();
+    if (live && needsBody)
+      this.bodyTracker.update(this.effectRenderer.source.canvas, nowForTracking, video.currentTime);
+    else this.bodyTracker.stop();
+    this.effectRenderer.headless.setFace(
+      settings.mode === 'headless' && live
+        ? this.tracker.face(nowForTracking, settings.facePrediction)
+        : null,
+      settings.mode === 'headless' && live
+        ? this.tracker.openingPadding(nowForTracking)
+        : { x: 0, y: 0 },
+    );
+    this.effectRenderer.awareness.setTracking(
+      settings.mode === 'awareness' && live ? this.tracker.features(nowForTracking) : null,
+      settings.mode === 'awareness' && live ? this.bodyTracker.body(nowForTracking) : null,
+    );
+    const status = live
+      ? combinedTrackingStatus(
+          this.tracker.trackingStatus,
+          this.bodyTracker.trackingStatus,
+          needsFace,
+          needsBody,
+        )
+      : 'off';
+    if (status !== this.lastTracking) {
+      this.lastTracking = status;
+      this.readState().onTracking(status);
     }
     if (nowForTracking - this.lastPerformance >= 500) {
       this.lastPerformance = nowForTracking;

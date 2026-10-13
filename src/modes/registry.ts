@@ -1,3 +1,4 @@
+import { AwarenessMode } from './awareness/AwarenessMode';
 import { HeadlessMode } from './headless/HeadlessMode';
 import { SphereMode } from './sphere/SphereMode';
 import { StillCenterMode } from './still/StillCenterMode';
@@ -9,4 +10,5 @@ export const modes: { id: Mode; title: string; Controls: ComponentType<ModeContr
   { id: 'headless', title: 'Headless mirror', Controls: HeadlessMode },
   { id: 'sphere', title: 'Glass sphere', Controls: SphereMode },
   { id: 'still', title: 'Still center', Controls: StillCenterMode },
+  { id: 'awareness', title: 'Universe mirror', Controls: AwarenessMode },
 ];
