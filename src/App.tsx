@@ -22,6 +22,7 @@ import type { TrackingStatus } from './modes/headless/trackingMessages';
 const initial: Settings = {
   mode: 'headless',
   projectionVariant: 'face',
+  projectionEnvironment: 'temple',
   projectionSize: 1,
   projectionOpacity: 0.75,
   projectionBlend: 'source-over',

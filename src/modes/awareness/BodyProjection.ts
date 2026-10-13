@@ -29,6 +29,10 @@ export class BodyProjection {
     ctx.drawImage(this.mask.canvas, 0, 0, 640, 360);
     ctx.restore();
   }
+  get canvas() {
+    return this.texture.canvas;
+  }
+
   draw(ctx: CanvasRenderingContext2D, body: BodyFrame | null, settings: Settings) {
     if (!body) return;
     const width = 960 * settings.projectionSize,

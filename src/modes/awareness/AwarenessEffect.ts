@@ -6,11 +6,14 @@ import { demoLandmarks, demoBody } from './demoTracking.ts';
 import { FeatureTexture } from './FeatureTexture.ts';
 import { drawFaceProjection } from './FaceProjection.ts';
 import { BodyProjection } from './BodyProjection.ts';
-import { drawDeity } from './DeityProjection.ts';
+import { DeityProjection } from './DeityProjection.ts';
+import { VisionaryTemple } from './visionary/VisionaryTemple.ts';
 export class AwarenessEffect implements Effect {
   private background = createSurface(640, 360);
   private features = new FeatureTexture();
   private bodyProjection = new BodyProjection();
+  private temple = new VisionaryTemple();
+  private deity = new DeityProjection();
   private landmarks: Position[] | null = null;
   private body: BodyFrame | null = null;
   hasBackground = false;
@@ -28,6 +31,11 @@ export class AwarenessEffect implements Effect {
     this.background.context.clearRect(0, 0, 640, 360);
     this.setTracking(null, null);
   }
+  dispose() {
+    this.deity.dispose();
+    this.temple.dispose();
+  }
+
   render(ctx: CanvasRenderingContext2D, source: SourceFrame, settings: Settings, time: number) {
     if (settings.demo && !this.hasBackground) drawDemoRoom(this.background.context);
     if (this.hasBackground || settings.demo) ctx.drawImage(this.background.canvas, 0, 0, 960, 540);
@@ -40,6 +48,21 @@ export class AwarenessEffect implements Effect {
       settings.projectionVariant === 'body' || settings.projectionVariant === 'deity';
     const body = settings.demo && needsBody ? demoBody(time) : this.body;
     this.features.update(source, landmarks, settings.projectionVariant === 'eyes');
+    if (settings.projectionEnvironment === 'temple') {
+      if (settings.projectionVariant === 'body') this.bodyProjection.update(source, body);
+      this.temple.render(
+        ctx,
+        source,
+        landmarks,
+        this.features,
+        settings,
+        time,
+        body ? this.bodyProjection.canvas : undefined,
+      );
+      if (settings.projectionVariant === 'deity')
+        this.deity.draw(ctx, this.features, landmarks, body, settings);
+      return;
+    }
     ctx.save();
     ctx.globalAlpha = settings.projectionOpacity;
     ctx.globalCompositeOperation = settings.projectionBlend;
@@ -47,7 +70,7 @@ export class AwarenessEffect implements Effect {
       this.bodyProjection.update(source, body);
       this.bodyProjection.draw(ctx, body, settings);
     } else if (settings.projectionVariant === 'deity')
-      drawDeity(ctx, this.features, body, settings, time);
+      this.deity.draw(ctx, this.features, landmarks, body, settings);
     else if (this.features.ready) drawFaceProjection(ctx, this.features, settings);
     ctx.restore();
   }

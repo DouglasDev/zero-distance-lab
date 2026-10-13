@@ -2,6 +2,7 @@ export type Mode = 'headless' | 'sphere' | 'still' | 'awareness';
 export type ProjectionVariant = 'face' | 'faces' | 'eyes' | 'body' | 'deity';
 export interface Settings {
   projectionVariant: ProjectionVariant;
+  projectionEnvironment: 'temple' | 'room';
   projectionSize: number;
   projectionOpacity: number;
   projectionBlend: 'source-over' | 'screen' | 'soft-light';

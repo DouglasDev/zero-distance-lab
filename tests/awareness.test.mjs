@@ -6,7 +6,7 @@ import { FeatureTexture } from '../src/modes/awareness/FeatureTexture.ts';
 import { drawFaceProjection } from '../src/modes/awareness/FaceProjection.ts';
 import { BodyProjection } from '../src/modes/awareness/BodyProjection.ts';
 import { demoBody, demoLandmarks } from '../src/modes/awareness/demoTracking.ts';
-import { drawDeity } from '../src/modes/awareness/DeityProjection.ts';
+import { DeityProjection } from '../src/modes/awareness/DeityProjection.ts';
 import { BodyTracker } from '../src/modes/awareness/BodyTracker.ts';
 import { combinedTrackingStatus } from '../src/modes/awareness/trackingStatus.ts';
 import { FaceTracker } from '../src/modes/headless/FaceTracker.ts';
@@ -94,16 +94,23 @@ test('body segmentation projects foreground pixels and leaves all room pixels ou
   effect.draw(ctx, null, settings);
   assert.deepEqual(pixels(ctx), before, 'missing body cannot reuse an old silhouette');
 });
-test('deity limbs respond to pose changes even with the same animation time', () => {
+test('deity artwork deforms with tracked arm movement', () => {
   const features = new FeatureTexture(),
     first = output(),
     second = output();
   const body = demoBody(0);
-  drawDeity(first.ctx, features, body, settings, 0);
+  const art = createCanvas(519, 624),
+    artContext = art.getContext('2d');
+  artContext.fillStyle = '#e08030';
+  artContext.fillRect(0, 0, 519, 624);
+  artContext.fillStyle = '#303090';
+  for (let y = 0; y < 624; y += 30) artContext.fillRect(0, y, 519, 12);
+  const deity = new DeityProjection(art);
+  deity.draw(first.ctx, features, null, body, settings);
   const moved = { ...body, pose: body.pose.map((p) => ({ ...p })) };
   moved.pose[13].y -= 100;
   moved.pose[15].y -= 200;
-  drawDeity(second.ctx, features, moved, settings, 0);
+  deity.draw(second.ctx, features, null, moved, settings);
   assert.notDeepEqual(pixels(first.ctx), pixels(second.ctx));
 });
 test('projection room capture survives switching experiments and clear removes it', () => {

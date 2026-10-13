@@ -70,6 +70,7 @@ export class ExperimentScene extends Phaser.Scene {
   dispose() {
     this.tracker.stop();
     this.bodyTracker.stop();
+    this.effectRenderer.awareness.dispose();
   }
 
   capture() {
@@ -83,11 +84,7 @@ export class ExperimentScene extends Phaser.Scene {
     const { settings } = this.readState();
     if (
       !this.texture ||
-      !this.clock.advance(
-        now,
-        settings.motion,
-        settings.mode === 'headless' || settings.mode === 'awareness' ? 60 : 30,
-      )
+      !this.clock.advance(now, settings.motion, settings.mode === 'headless' ? 60 : 30)
     )
       return;
     this.effectRenderer.updateSource(this.readVideo(), settings.demo, this.clock.time);

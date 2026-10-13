@@ -1,6 +1,7 @@
 import type { Position } from '../../rendering/types.ts';
 import type { BodyFrame } from './bodyMessages.ts';
 import { createSurface } from '../../rendering/canvas.ts';
+import { FACE_OVAL } from '../headless/faceOutline.ts';
 const groups = [
   [33, 160, 158, 133, 153, 144],
   [362, 385, 387, 263, 373, 380],
@@ -16,6 +17,10 @@ export function demoLandmarks(time: number): Position[] {
     { x, y: 151, w: 5, h: 10 },
     { x, y: 168, w: 18, h: 9 },
   ];
+  FACE_OVAL.forEach((index, i) => {
+    const a = (i / FACE_OVAL.length) * Math.PI * 2 - Math.PI / 2;
+    points[index] = { x: x + Math.cos(a) * 47, y: 142 + Math.sin(a) * 60 };
+  });
   groups.forEach((indices, g) =>
     indices.forEach((index, i) => {
       const b = bounds[g],
