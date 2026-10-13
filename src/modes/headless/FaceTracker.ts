@@ -17,7 +17,6 @@ interface TrackerDependencies {
   assets: string;
   motionFrame?: (canvas: HTMLCanvasElement) => GrayFrame;
   now?: () => number;
-  wantFeatures?: () => boolean;
 }
 
 /** One frame in flight, off-thread detection, and continuity through missed frames. */
@@ -108,7 +107,7 @@ export class FaceTracker {
     }
   }
 
-  update(canvas: HTMLCanvasElement, now: number, frameId = now) {
+  update(canvas: HTMLCanvasElement, now: number, frameId = now, features = false) {
     if (frameId !== this.lastCameraFrame) {
       this.lastCameraFrame = frameId;
       this.meter.camera(now);
@@ -139,7 +138,7 @@ export class FaceTracker {
               frame,
               timestamp: now,
               generation,
-              features: this.dependencies.wantFeatures?.() ?? false,
+              features,
             },
             [frame],
           );

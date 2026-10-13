@@ -101,7 +101,12 @@ export class ExperimentScene extends Phaser.Scene {
       settings.mode === 'headless' ||
       (settings.mode === 'awareness' && settings.projectionVariant !== 'body');
     if (live && needsFace)
-      this.tracker.update(this.effectRenderer.source.canvas, nowForTracking, video.currentTime);
+      this.tracker.update(
+        this.effectRenderer.source.canvas,
+        nowForTracking,
+        video.currentTime,
+        settings.mode === 'awareness',
+      );
     else this.tracker.stop();
     if (live && needsBody)
       this.bodyTracker.update(this.effectRenderer.source.canvas, nowForTracking, video.currentTime);

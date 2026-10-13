@@ -286,3 +286,66 @@ test('body projection uses the matched snapshot rather than a newer live camera 
   projection.draw(ctx, body, settings);
   assert.deepEqual(pixel(ctx, 480, 270), [0, 0, 255, 255]);
 });
+
+test('live Universe mirror requests feature landmarks and projects them over the captured room', async () => {
+  const renderer = new EffectRenderer(),
+    source = createCanvas(640, 360),
+    sourceContext = source.getContext('2d');
+  Object.assign(source, { readyState: 2, videoWidth: 640, videoHeight: 360 });
+  sourceContext.fillStyle = '#0000ff';
+  sourceContext.fillRect(0, 0, 640, 360);
+  renderer.updateSource(source, false, 0);
+  renderer.capture(false);
+  sourceContext.fillStyle = '#ff0000';
+  sourceContext.fillRect(0, 0, 640, 360);
+  renderer.updateSource(source, false, 1);
+  const worker = {
+    onmessage: null,
+    onerror: null,
+    messages: [],
+    postMessage(message) {
+      this.messages.push(message);
+    },
+    terminate() {},
+  };
+  const tracker = new FaceTracker(() => {}, {
+    worker: () => worker,
+    assets: '/tracking',
+    bitmap: async () => ({ close() {} }),
+  });
+  tracker.update(renderer.source.canvas, 0, 0, true);
+  worker.onmessage({ data: { type: 'ready' } });
+  tracker.update(renderer.source.canvas, 1, 1, true);
+  await flush();
+  const request = worker.messages.at(-1);
+  assert.equal(request.features, true, 'live projections must request feature data');
+  const landmarks = demoLandmarks(0);
+  worker.onmessage({
+    data: {
+      type: 'face',
+      outline: [
+        { x: 270, y: 80 },
+        { x: 370, y: 80 },
+        { x: 370, y: 205 },
+      ],
+      landmarks: request.features ? landmarks : undefined,
+      timestamp: 1,
+      generation: request.generation,
+    },
+  });
+  renderer.awareness.setTracking(tracker.features(20), null);
+  const { ctx } = output();
+  renderer.render(ctx, { ...settings, demo: false, projectionOpacity: 1 }, 20);
+  assert.deepEqual(
+    pixel(ctx, 10, 10),
+    [0, 0, 255, 255],
+    'the captured room remains outside projections',
+  );
+  const eye = pixel(ctx, 324, 170);
+  assert.ok(eye[0] > 200 && eye[2] < 55, 'live eye texture overlays the static background');
+  // Switching back to headless should omit the extra landmark transfer.
+  tracker.update(renderer.source.canvas, 21, 2, false);
+  await flush();
+  assert.equal(worker.messages.at(-1).features, false);
+  tracker.stop();
+});
